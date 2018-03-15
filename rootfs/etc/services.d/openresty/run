@@ -1,0 +1,5 @@
+#!/bin/sh
+
+while [ ! -f /usr/local/openresty/nginx/lock ]; do sleep 1; done
+
+/usr/local/openresty/bin/openresty -g "daemon off;" 2>&1

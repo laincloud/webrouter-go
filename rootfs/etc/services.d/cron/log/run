@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# ensure ownership & permissions for /lain/logs/cron
+mkdir -p /lain/logs/cron
+chown -R nobody:nogroup /lain/logs/cron
+chmod 700 /lain/logs/cron
+
+exec logutil-service /lain/logs/cron

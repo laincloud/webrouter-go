@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# ensure ownership & permissions for /lain/logs/openresty
+mkdir -p /lain/logs/openresty
+chown -R nobody:nogroup /lain/logs/openresty
+chmod 700 /lain/logs/openresty
+
+exec logutil-service /lain/logs/openresty

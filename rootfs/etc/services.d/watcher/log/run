@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# ensure ownership & permissions for /lain/logs/watcher
+mkdir -p /lain/logs/watcher
+chown -R nobody:nogroup /lain/logs/watcher
+chmod 700 /lain/logs/watcher
+
+exec logutil-service /lain/logs/watcher

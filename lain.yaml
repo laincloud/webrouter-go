@@ -1,0 +1,44 @@
+appname: webrouter-go
+
+build:
+  base: laincloud/golang:1.10
+  prepare:
+      version: "236"
+  script:
+    - mkdir -p /go/src/github.com/laincloud/webrouter
+    - cp -r /lain/app/* /go/src/github.com/laincloud/webrouter
+    - go build -o /lain/app/bin/watcher github.com/laincloud/webrouter/watcher
+
+release:
+  dest_base: laincloud/openresty:1.11.2.5
+  copy:
+    - src: /lain/app/rootfs/*
+      dest: /
+    - src: /lain/app/bin/watcher
+      dest: /usr/local/bin/watcher
+
+worker.openresty:
+  entrypoint: /init
+  env:
+    - LAINLET_ADDR=lainlet.lain:9001
+    - CONSUL_ADDR=consul.lain:8500
+    - CONSUL_KEY_PREFIX=lain/webrouter/upstreams/
+    - NGINX_PATH=/usr/local/openresty/nginx/
+    - NGINX_PID_PATH=/var/run/nginx.pid
+    - NGINX_LOG_PATH=/var/log/nginx/
+    - NGINX_SERVER_NAME=webrouter.lain.local
+  cpu: 8
+  memory: 2g
+  volumes:
+    - /usr/local/openresty/nginx/ssl
+    - /var/log/nginx
+
+worker.confd:
+  image: laincloud/webrouter-confd:201803201257
+  cmd: /usr/local/bin/confd
+  env:
+    - LAINLET_ADDR=lainlet.lain:9001
+    - CONSUL_ADDR=consul.lain:8500
+    - CONSUL_KEY_PREFIX=lain/webrouter/upstreams/
+  cpu: 0
+  memory: 512m
