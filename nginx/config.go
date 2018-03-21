@@ -134,7 +134,7 @@ type Config struct {
 }
 
 func Init(nginxPath string, logPath string, serverName string, pidPath string) error {
-	if err := rendorNginxConf(nginxPath, logPath, pidPath, serverName); err != nil {
+	if err := renderNginxConf(nginxPath, logPath, pidPath, serverName); err != nil {
 		return err
 	}
 	if err := loadCrt(nginxPath); err != nil {
@@ -160,7 +160,7 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string) e
 	return nil
 }
 
-func rendorNginxConf(nginxPath string, logPath string, pidPath string, serverName string) error {
+func renderNginxConf(nginxPath string, logPath string, pidPath string, serverName string) error {
 	f, err := os.Create(nginxPath + "conf/nginx.conf")
 	if err != nil {
 		return err
