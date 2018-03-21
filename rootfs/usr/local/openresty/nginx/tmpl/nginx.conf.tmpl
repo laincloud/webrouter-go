@@ -26,8 +26,14 @@ http {
     server {
         listen 80;
         server_name  .{{ $.ServerName }};
-        location / {
+
+        location = /upstream_show {
             upstream_show;
+        }
+
+        location = /upstream_status {
+            check_status;
+            access_log off;
         }
     }
 
