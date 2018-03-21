@@ -34,7 +34,7 @@ worker.openresty:
     - /var/log/nginx
 
 worker.confd:
-  image: laincloud/webrouter-confd:201803211515
+  image: laincloud/webrouter-confd:201803211831
   cmd: /usr/local/bin/confd
   env:
     - LAINLET_ADDR=lainlet.lain:9001

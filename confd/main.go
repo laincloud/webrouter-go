@@ -46,29 +46,43 @@ func main() {
 			if ok {
 				for k, newServers := range upstreams {
 					key := prefix + k
-					servers, _, err := client.KV().Keys(key, "", &api.QueryOptions{RequireConsistent: true})
-					if err != nil {
-						log.Errorln(err)
-						continue
+					var servers []string
+					for {
+						servers, _, err = client.KV().Keys(key, "", &api.QueryOptions{RequireConsistent: true})
+						if err != nil {
+							log.Errorln(err)
+						} else {
+							break
+						}
 					}
+
 					for i, server := range servers {
 						servers[i] = server[len(key)+1:]
 					}
 					deleted, added := diff(servers, newServers)
 					for _, server := range added {
 						p := &api.KVPair{Key: key + "/" + server, Value: []byte("")}
-						_, err := client.KV().Put(p, nil)
-						if err != nil {
-							log.Errorln(err)
-							continue
+						for {
+							_, err := client.KV().Put(p, nil)
+							if err != nil {
+								log.Errorln(err)
+							} else {
+								break
+							}
 						}
+
 					}
+
 					for _, server := range deleted {
-						_, err := client.KV().Delete(key+"/"+server, nil)
-						if err != nil {
-							log.Errorln(err)
-							continue
+						for {
+							_, err := client.KV().Delete(key+"/"+server, nil)
+							if err != nil {
+								log.Errorln(err)
+							} else {
+								break
+							}
 						}
+
 					}
 				}
 			}

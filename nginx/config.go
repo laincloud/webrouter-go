@@ -56,7 +56,6 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string) e
 	}
 
 	if f, err := os.Create(nginxPath + "conf/server.conf"); err != nil {
-		f.Close()
 		return err
 	} else {
 		err = f.Close()
@@ -66,7 +65,6 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string) e
 	}
 
 	if f, err := os.Create(nginxPath + "conf/upstream.conf"); err != nil {
-		f.Close()
 		return err
 	} else {
 		err = f.Close()
@@ -85,7 +83,6 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string) e
 	}
 
 	if f, err := os.Create(nginxPath + "lock"); err != nil {
-		f.Close()
 		return err
 	} else {
 		err = f.Close()
