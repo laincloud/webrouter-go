@@ -78,7 +78,7 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string) e
 		if err := os.Mkdir(nginxPath+"upstreams", os.ModePerm); err != nil {
 			return err
 		}
-	} else {
+	} else if err != nil {
 		return err
 	}
 
