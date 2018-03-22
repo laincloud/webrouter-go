@@ -154,7 +154,7 @@ func loadCrt(nginxPath string) error {
 	}
 	for _, file := range files {
 		if strings.Contains(file.Name(), ".crt") {
-			bytes, err := ioutil.ReadFile(nginxPath + "ssl" + file.Name())
+			bytes, err := ioutil.ReadFile(nginxPath + "ssl/" + file.Name())
 			if err != nil {
 				return err
 			}
