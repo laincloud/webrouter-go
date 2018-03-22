@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/laincloud/webrouter/nginx"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,125 +36,145 @@ type Annotation struct {
 	HealthCheck string   `json:"healthcheck"`
 }
 
-func WatchConfig(addr string) (<-chan *nginx.Config, error) {
-	resp, err := http.Get("http://" + addr + "/v2/webrouter/webprocs?watch=1")
-	if err != nil {
-		return nil, err
-	}
-	reader := bufio.NewReader(resp.Body)
+func WatchConfig(addr string) <-chan *nginx.Config {
 	respCh := make(chan *nginx.Config)
 	go func() {
 		defer close(respCh)
 		for {
-		START:
-			data := new(WebrouterInfo)
-			line, err := reader.ReadBytes('\n')
+		START1:
+			resp, err := http.Get("http://" + addr + "/v2/webrouter/webprocs?watch=1")
 			if err != nil {
-				log.Fatalln(err)
-			}
-			fields := bytes.SplitN(bytes.TrimSpace(line), []byte{':'}, 2)
-			if len(fields) < 2 {
+				log.Errorln(err)
 				continue
 			}
-			key := string(bytes.TrimSpace(fields[0]))
-			if key == "data" {
-				err := json.Unmarshal(bytes.TrimSpace(fields[1]), &data.Data)
+			reader := bufio.NewReader(resp.Body)
+			for {
+			START2:
+				data := new(WebrouterInfo)
+				line, err := reader.ReadBytes('\n')
 				if err != nil {
+					if err == io.EOF {
+						log.Errorln(err)
+						goto START1
+					} else {
+						log.Errorln(err)
+						continue
+					}
+				}
+				fields := bytes.SplitN(bytes.TrimSpace(line), []byte{':'}, 2)
+				if len(fields) < 2 {
 					continue
 				}
-				config := new(nginx.Config)
-				config.Servers = make(map[string]nginx.Server)
-				config.Upstreams = make(map[string]string)
-				for k, v := range data.Data {
-					if len(v.PodInfos) < 1 {
+				key := string(bytes.TrimSpace(fields[0]))
+				if key == "data" {
+					err := json.Unmarshal(bytes.TrimSpace(fields[1]), &data.Data)
+					if err != nil {
 						continue
 					}
-					name := strings.Replace(k, ".", "_", -1)
-					annotation := new(Annotation)
-					json.Unmarshal([]byte(v.PodInfos[0].Annotation), annotation)
-					if len(annotation.MountPoint) < 1 {
-						continue
-					}
-					for _, mountPoint := range annotation.MountPoint {
-						var serverName, uri string
-						if strings.Index(mountPoint, "/") > 0 {
-							serverName = mountPoint[0 : strings.Index(mountPoint, "/")-1]
-							uri = mountPoint[strings.Index(mountPoint, "/")-1:]
-						} else {
-							serverName = mountPoint
-							uri = "/"
+					config := new(nginx.Config)
+					config.Servers = make(map[string]nginx.Server)
+					config.Upstreams = make(map[string]string)
+					for k, v := range data.Data {
+						if len(v.PodInfos) < 1 {
+							continue
 						}
-						if _, ok := config.Servers[serverName]; !ok {
-							config.Servers[serverName] = nginx.Server{
-								Locations: make(map[string]nginx.Location),
-							}
-						} else {
-							if config.Servers[serverName].Locations[uri].Upstream != "" {
-								log.WithFields(log.Fields{
-									"servername": serverName,
-									"location":   uri,
-									"upstream1":  config.Servers[serverName].Locations[uri].Upstream,
-									"upstream2":  name,
-								}).Errorln("duplicate location !")
-								goto START
-							}
+						name := strings.Replace(k, ".", "_", -1)
+						annotation := new(Annotation)
+						json.Unmarshal([]byte(v.PodInfos[0].Annotation), annotation)
+						if len(annotation.MountPoint) < 1 {
+							continue
 						}
+						for _, mountPoint := range annotation.MountPoint {
+							var serverName, uri string
+							if strings.Index(mountPoint, "/") > 0 {
+								serverName = mountPoint[0:strings.Index(mountPoint, "/")]
+								uri = mountPoint[strings.Index(mountPoint, "/")+1:]
+							} else {
+								serverName = mountPoint
+								uri = "/"
+							}
+							if _, ok := config.Servers[serverName]; !ok {
+								config.Servers[serverName] = nginx.Server{
+									Locations: make(map[string]nginx.Location),
+								}
+							} else {
+								if config.Servers[serverName].Locations[uri].Upstream != "" {
+									log.WithFields(log.Fields{
+										"servername": serverName,
+										"location":   uri,
+										"upstream1":  config.Servers[serverName].Locations[uri].Upstream,
+										"upstream2":  name,
+									}).Errorln("duplicate location !")
+									goto START2
+								}
+							}
 
-						config.Servers[serverName].Locations[uri] = nginx.Location{
-							Upstream:  name,
-							HttpsOnly: annotation.HttpsOnly,
+							config.Servers[serverName].Locations[uri] = nginx.Location{
+								Upstream:  name,
+								HttpsOnly: annotation.HttpsOnly,
+							}
 						}
+						config.Upstreams[name] = annotation.HealthCheck
 					}
-					config.Upstreams[name] = annotation.HealthCheck
+					respCh <- config
 				}
-				respCh <- config
 			}
 		}
 	}()
-	return respCh, nil
+	return respCh
 }
 
-func WatchUpstream(addr string) (<-chan map[string][]string, error) {
-	resp, err := http.Get("http://" + addr + "/v2/webrouter/webprocs?watch=1")
-	if err != nil {
-		return nil, err
-	}
-	reader := bufio.NewReader(resp.Body)
+func WatchUpstream(addr string) <-chan map[string][]string {
 	respCh := make(chan map[string][]string)
 	go func() {
 		defer close(respCh)
+	START:
 		for {
-			data := new(WebrouterInfo)
-			line, err := reader.ReadBytes('\n')
+			resp, err := http.Get("http://" + addr + "/v2/webrouter/webprocs?watch=1")
 			if err != nil {
-				log.Fatalln(err)
-			}
-			fields := bytes.SplitN(bytes.TrimSpace(line), []byte{':'}, 2)
-			if len(fields) < 2 {
+				log.Errorln(err)
 				continue
 			}
-			key := string(bytes.TrimSpace(fields[0]))
-			if key == "data" {
-				err := json.Unmarshal(bytes.TrimSpace(fields[1]), &data.Data)
+			reader := bufio.NewReader(resp.Body)
+			for {
+				data := new(WebrouterInfo)
+				line, err := reader.ReadBytes('\n')
 				if err != nil {
+					if err == io.EOF {
+						log.Errorln(err)
+						goto START
+					} else {
+						log.Errorln(err)
+						continue
+					}
+				}
+				fields := bytes.SplitN(bytes.TrimSpace(line), []byte{':'}, 2)
+				if len(fields) < 2 {
 					continue
 				}
-				upstreams := make(map[string][]string)
-				for k, v := range data.Data {
-					if len(v.PodInfos) < 1 {
+				key := string(bytes.TrimSpace(fields[0]))
+				if key == "data" {
+					err := json.Unmarshal(bytes.TrimSpace(fields[1]), &data.Data)
+					if err != nil {
 						continue
 					}
-					name := strings.Replace(k, ".", "_", -1)
-					if len(v.PodInfos) < 1 {
-						continue
+					upstreams := make(map[string][]string)
+					for k, v := range data.Data {
+						if len(v.PodInfos) < 1 {
+							continue
+						}
+						name := strings.Replace(k, ".", "_", -1)
+						if len(v.PodInfos) < 1 {
+							continue
+						}
+						for _, container := range v.PodInfos {
+							upstreams[name] = append(upstreams[name], container.Containers[0].IP+":"+strconv.Itoa(container.Containers[0].Expose))
+						}
 					}
-					for _, container := range v.PodInfos {
-						upstreams[name] = append(upstreams[name], container.Containers[0].IP+":"+strconv.Itoa(container.Containers[0].Expose))
-					}
+					respCh <- upstreams
 				}
-				respCh <- upstreams
 			}
 		}
 	}()
-	return respCh, nil
+	return respCh
 }

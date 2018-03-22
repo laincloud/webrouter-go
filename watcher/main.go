@@ -52,11 +52,7 @@ func main() {
 			time.Sleep(time.Second)
 			continue
 		}
-		watchCh, err := lainlet.WatchConfig(lainletAddr)
-		if err != nil {
-			log.Errorln(err)
-			continue
-		}
+		watchCh := lainlet.WatchConfig(lainletAddr)
 		for {
 			newConfig, ok := <-watchCh
 			if ok {

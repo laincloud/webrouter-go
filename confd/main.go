@@ -36,11 +36,7 @@ func main() {
 	}
 
 	for {
-		watchCh, err := lainlet.WatchUpstream(lainletAddr)
-		if err != nil {
-			log.Errorln(err)
-			continue
-		}
+		watchCh := lainlet.WatchUpstream(lainletAddr)
 		for {
 			upstreams, ok := <-watchCh
 			if ok {
