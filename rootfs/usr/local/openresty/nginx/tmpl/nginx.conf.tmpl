@@ -27,7 +27,7 @@ http {
 
     server {
         listen 80;
-        server_name  .{{ $.ServerName }};
+        server_name  {{ $.ServerName }};
 
         location = /upstream_show {
             upstream_show;
