@@ -20,26 +20,32 @@ func main() {
 	viper.SetDefault("nginx", "/usr/local/openresty/nginx/")
 	viper.SetDefault("pid", "/var/run/nginx.pid")
 	viper.SetDefault("log", "/var/log/nginx/")
+	viper.SetDefault("ssl", "/etc/nginx/ssl/")
 	viper.SetDefault("servername", "localhost")
 	viper.SetDefault("prefix", "lain/webrouter/upstreams/")
+	viper.SetDefault("https", false)
 
 	viper.BindEnv("lainlet", "LAINLET_ADDR")
 	viper.BindEnv("consul", "CONSUL_ADDR")
 	viper.BindEnv("nginx", "NGINX_PATH")
 	viper.BindEnv("pid", "NGINX_PID_PATH")
 	viper.BindEnv("log", "NGINX_LOG_PATH")
+	viper.BindEnv("ssl", "NGINX_SSL_PATH")
 	viper.BindEnv("serverName", "NGINX_SERVER_NAME")
 	viper.BindEnv("prefix", "CONSUL_KEY_PREFIX")
+	viper.BindEnv("https", "HTTPS")
 
 	lainletAddr := viper.GetString("lainlet")
 	consulAddr := viper.GetString("consul")
 	nginxPath := viper.GetString("nginx")
 	pidPath := viper.GetString("pid")
 	logPath := viper.GetString("log")
+	sslPath := viper.GetString("ssl")
 	serverName := viper.GetString("serverName")
 	consulPrefix := viper.GetString("prefix")
+	https := viper.GetBool("https")
 
-	err := nginx.Init(nginxPath, logPath, serverName, pidPath)
+	err := nginx.Init(nginxPath, logPath, serverName, pidPath, https, sslPath)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -58,7 +64,7 @@ func main() {
 			if ok {
 				if !reflect.DeepEqual(config, newConfig) {
 					config = newConfig
-					err := nginx.Reload(config, consulAddr, consulPrefix, nginxPath, pidPath,logPath)
+					err := nginx.Reload(config, consulAddr, consulPrefix, nginxPath, pidPath, logPath, https, sslPath)
 					if err != nil {
 						log.Errorln(err)
 						continue

@@ -1,4 +1,4 @@
-appname: webrouter-go
+appname: webrouter
 
 build:
   base: laincloud/golang:1.10
@@ -17,7 +17,7 @@ release:
     - src: /lain/app/bin/watcher
       dest: /usr/local/bin/watcher
 
-worker.openresty:
+worker.worker:
   entrypoint: /init
   env:
     - LAINLET_ADDR=lainlet.lain:9001
@@ -26,11 +26,13 @@ worker.openresty:
     - NGINX_PATH=/usr/local/openresty/nginx/
     - NGINX_PID_PATH=/var/run/nginx.pid
     - NGINX_LOG_PATH=/var/log/nginx/
+    - NGINX_SSL_PATH=/etc/nginx/ssl/
     - NGINX_SERVER_NAME=webrouter.lain.local
+    - HTTPS=false
   cpu: 8
   memory: 2g
   volumes:
-    - /usr/local/openresty/nginx/ssl
+    - /etc/nginx/ssl
     - /var/log/nginx
 
 worker.confd:

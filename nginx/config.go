@@ -29,7 +29,7 @@ type Config struct {
 	Upstreams map[string]string
 }
 
-func Init(nginxPath string, logPath string, serverName string, pidPath string) error {
+func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string) error {
 	var err error
 
 	nginxConfTmpl, err = template.ParseFiles(nginxPath + "tmpl/nginx.conf.tmpl")
@@ -48,10 +48,6 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string) e
 	}
 
 	if err := renderNginxConf(nginxPath, logPath, pidPath, serverName); err != nil {
-		return err
-	}
-
-	if err := loadCrt(nginxPath); err != nil {
 		return err
 	}
 
@@ -80,6 +76,12 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string) e
 		}
 	} else if err != nil {
 		return err
+	}
+
+	if https {
+		if err := loadCrt(sslPath); err != nil {
+			return err
+		}
 	}
 
 	if f, err := os.Create(nginxPath + "lock"); err != nil {
@@ -112,14 +114,16 @@ func renderNginxConf(nginxPath string, logPath string, pidPath string, serverNam
 	return f.Close()
 }
 
-func renderServerConf(config *Config, nginxPath string, logPath string) error {
+func renderServerConf(config *Config, nginxPath string, logPath string, https bool, sslPath string) error {
 	f, err := os.Create(nginxPath + "conf/server.conf")
 	if err != nil {
 		return err
 	}
 	err = serverTmpl.Execute(f, map[string]interface{}{
+		"HTTPS":     https,
 		"NginxPath": nginxPath,
 		"LogPath":   logPath,
+		"SSLPath":   sslPath,
 		"Servers":   config.Servers,
 	})
 	if err != nil {
@@ -146,15 +150,15 @@ func renderUpstreamConf(config *Config, consulAddr string, consulPrefix string, 
 	return f.Close()
 }
 
-func loadCrt(nginxPath string) error {
+func loadCrt(sslPath string) error {
 	certs = make(map[string]*x509.Certificate)
-	files, err := ioutil.ReadDir(nginxPath + "ssl")
+	files, err := ioutil.ReadDir(sslPath)
 	if err != nil {
 		return err
 	}
 	for _, file := range files {
 		if strings.Contains(file.Name(), ".crt") {
-			bytes, err := ioutil.ReadFile(nginxPath + "ssl/" + file.Name())
+			bytes, err := ioutil.ReadFile(sslPath + file.Name())
 			if err != nil {
 				return err
 			}
@@ -183,8 +187,8 @@ func matchSSL(config *Config) {
 	}
 }
 
-func render(config *Config, consulAddr string, consulPrefix string, nginxPath string, logPath string) error {
-	if err := renderServerConf(config, nginxPath, logPath); err != nil {
+func render(config *Config, consulAddr string, consulPrefix string, nginxPath string, logPath string, https bool, sslPath string) error {
+	if err := renderServerConf(config, nginxPath, logPath, https, sslPath); err != nil {
 		return err
 	}
 	if err := renderUpstreamConf(config, consulAddr, consulPrefix, nginxPath); err != nil {
@@ -206,11 +210,12 @@ func reload(path string) error {
 	return nil
 }
 
-func Reload(config *Config, consulAddr string, consulPrefix, nginxPath string, pidPath string, logPath string) error {
+func Reload(config *Config, consulAddr string, consulPrefix, nginxPath string, pidPath string, logPath string, https bool, sslPath string) error {
+	if https {
+		matchSSL(config)
+	}
 
-	matchSSL(config)
-
-	if err := render(config, consulAddr, consulPrefix, nginxPath, logPath); err != nil {
+	if err := render(config, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath); err != nil {
 		return err
 	}
 
