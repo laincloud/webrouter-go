@@ -29,6 +29,7 @@ worker.worker:
     - NGINX_SSL_PATH=/etc/nginx/ssl/
     - NGINX_SERVER_NAME=webrouter.lain.local
     - HTTPS=false
+    - SERVER_NAMES_HASH_MAX_SIZE=512
   cpu: 8
   memory: 2g
   volumes:

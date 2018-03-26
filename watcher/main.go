@@ -21,9 +21,10 @@ func main() {
 	viper.SetDefault("pid", "/var/run/nginx.pid")
 	viper.SetDefault("log", "/var/log/nginx/")
 	viper.SetDefault("ssl", "/etc/nginx/ssl/")
-	viper.SetDefault("servername", "localhost")
+	viper.SetDefault("serverName", "localhost")
 	viper.SetDefault("prefix", "lain/webrouter/upstreams/")
 	viper.SetDefault("https", false)
+	viper.SetDefault("serverNamesHashMaxSize","512")
 
 	viper.BindEnv("lainlet", "LAINLET_ADDR")
 	viper.BindEnv("consul", "CONSUL_ADDR")
@@ -34,6 +35,7 @@ func main() {
 	viper.BindEnv("serverName", "NGINX_SERVER_NAME")
 	viper.BindEnv("prefix", "CONSUL_KEY_PREFIX")
 	viper.BindEnv("https", "HTTPS")
+	viper.BindEnv("serverNamesHashMaxSize","SERVER_NAMES_HASH_MAX_SIZE")
 
 	lainletAddr := viper.GetString("lainlet")
 	consulAddr := viper.GetString("consul")
@@ -44,8 +46,9 @@ func main() {
 	serverName := viper.GetString("serverName")
 	consulPrefix := viper.GetString("prefix")
 	https := viper.GetBool("https")
+	serverNamesHashMaxSize := viper.GetInt("serverNamesHashMaxSize")
 
-	err := nginx.Init(nginxPath, logPath, serverName, pidPath, https, sslPath)
+	err := nginx.Init(nginxPath, logPath, serverName, pidPath, https, sslPath,serverNamesHashMaxSize)
 	if err != nil {
 		log.Fatalln(err)
 	}

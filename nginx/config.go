@@ -29,7 +29,7 @@ type Config struct {
 	Upstreams map[string]string
 }
 
-func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string) error {
+func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string, serverNamesHashMaxSize int) error {
 	var err error
 
 	nginxConfTmpl, err = template.ParseFiles(nginxPath + "tmpl/nginx.conf.tmpl")
@@ -47,7 +47,7 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 		return err
 	}
 
-	if err := renderNginxConf(nginxPath, logPath, pidPath, serverName); err != nil {
+	if err := renderNginxConf(nginxPath, logPath, pidPath, serverName, serverNamesHashMaxSize); err != nil {
 		return err
 	}
 
@@ -96,16 +96,17 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 	return nil
 }
 
-func renderNginxConf(nginxPath string, logPath string, pidPath string, serverName string) error {
+func renderNginxConf(nginxPath string, logPath string, pidPath string, serverName string, serverNamesHashMaxSize int) error {
 	f, err := os.Create(nginxPath + "conf/nginx.conf")
 	if err != nil {
 		return err
 	}
 	err = nginxConfTmpl.Execute(f, map[string]interface{}{
-		"NginxPath":  nginxPath,
-		"LogPath":    logPath,
-		"PidPath":    pidPath,
-		"ServerName": serverName,
+		"NginxPath":              nginxPath,
+		"LogPath":                logPath,
+		"PidPath":                pidPath,
+		"ServerName":             serverName,
+		"ServerNamesHashMaxSize": serverNamesHashMaxSize,
 	})
 	if err != nil {
 		f.Close()
