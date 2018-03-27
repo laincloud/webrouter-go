@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type ContainerForWebrouter struct {
@@ -55,6 +56,7 @@ func WatchConfig(addr string) <-chan *nginx.Config {
 				if err != nil {
 					if err == io.EOF {
 						log.Errorln(err)
+						time.Sleep(time.Second)
 						goto START1
 					} else {
 						log.Errorln(err)
@@ -145,6 +147,7 @@ func WatchUpstream(addr string) <-chan map[string][]string {
 				if err != nil {
 					if err == io.EOF {
 						log.Errorln(err)
+						time.Sleep(time.Second)
 						goto START
 					} else {
 						log.Errorln(err)

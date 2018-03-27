@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"github.com/facebookgo/pidfile"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -51,6 +52,14 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 		return err
 	}
 
+	log.WithFields(log.Fields{
+		"nginxPath":              nginxPath,
+		"logPath":                logPath,
+		"pidPath":                pidPath,
+		"serverName":             serverName,
+		"serverNamesHashMaxSize": serverNamesHashMaxSize,
+	}).Errorln("render nginx.conf success")
+
 	if f, err := os.Create(nginxPath + "conf/server.conf"); err != nil {
 		return err
 	} else {
@@ -59,6 +68,8 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 			return err
 		}
 	}
+
+	log.Debugln("create server.conf success")
 
 	if f, err := os.Create(nginxPath + "conf/upstream.conf"); err != nil {
 		return err
@@ -69,6 +80,8 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 		}
 	}
 
+	log.Debugln("create upstream.conf success")
+
 	_, err = os.Stat(nginxPath + "upstreams")
 	if os.IsNotExist(err) {
 		if err := os.Mkdir(nginxPath+"upstreams", os.ModePerm); err != nil {
@@ -77,6 +90,8 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 	} else if err != nil {
 		return err
 	}
+
+	log.Debugln("mkdir upstreams success")
 
 	if https {
 		if err := loadCrt(sslPath); err != nil {
@@ -92,6 +107,8 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 			return err
 		}
 	}
+
+	log.Debugln("create lock success")
 
 	return nil
 }
@@ -208,6 +225,10 @@ func reload(path string) error {
 	if err != nil {
 		return err
 	}
+	log.WithFields(log.Fields{
+		"pidPath": path,
+		"pid":     pid,
+	}).Debugln("nginx reload success")
 	return nil
 }
 

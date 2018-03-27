@@ -30,6 +30,7 @@ worker.worker:
     - NGINX_SERVER_NAME=webrouter.lain.local
     - HTTPS=false
     - SERVER_NAMES_HASH_MAX_SIZE=512
+    - DEBUG=false
   cpu: 8
   memory: 2g
   volumes:
