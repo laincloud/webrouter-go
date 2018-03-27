@@ -86,6 +86,9 @@ func WatchConfig(addr string) <-chan *nginx.Config {
 						}
 						for _, mountPoint := range annotation.MountPoint {
 							var serverName, uri string
+							if mountPoint[len(mountPoint)-1] == '/' {
+								mountPoint = mountPoint[0 : len(mountPoint)-1]
+							}
 							if strings.Index(mountPoint, "/") > 0 {
 								serverName = mountPoint[0:strings.Index(mountPoint, "/")]
 								uri = mountPoint[strings.Index(mountPoint, "/")+1:]
