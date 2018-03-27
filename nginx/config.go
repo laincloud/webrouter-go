@@ -58,7 +58,7 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 		"pidPath":                pidPath,
 		"serverName":             serverName,
 		"serverNamesHashMaxSize": serverNamesHashMaxSize,
-	}).Errorln("render nginx.conf success")
+	}).Debugln("render nginx.conf success")
 
 	if f, err := os.Create(nginxPath + "conf/server.conf"); err != nil {
 		return err
