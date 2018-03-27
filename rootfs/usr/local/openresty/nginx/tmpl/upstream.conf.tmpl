@@ -1,4 +1,4 @@
-{{ range $name, $uri := $.Upstreams -}}
+{{- range $name, $uri := $.Upstreams }}
 upstream {{ $name }} {
     # fake server otherwise ngx_http_upstream will report error when startup
     server 127.0.0.1:11111;
@@ -6,11 +6,10 @@ upstream {{ $name }} {
     # all backend server will pull from consul when startup and will delete fake server
 	upsync {{ $.ConsulAddr }}/v1/kv/{{ $.ConsulPrefix }}{{ $name }}/ upsync_timeout=6m upsync_interval=500ms upsync_type=consul strong_dependency=off;
 	upsync_dump_path /usr/local/openresty/nginx/upstreams/{{ $name }}.upstream;
-{{ if $uri }}
+{{- if $uri }}
 	check interval=3000 rise=2 fall=5 timeout=1000 type=http;
 	check_http_send "GET {{ $uri }} HTTP/1.0\r\n\r\n";
 	check_http_expect_alive http_2xx http_3xx;
-{{ end -}}
+{{- end }}
 }
-
-{{ end -}}
+{{- end }}

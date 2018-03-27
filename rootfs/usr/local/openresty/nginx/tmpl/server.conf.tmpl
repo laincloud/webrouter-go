@@ -1,32 +1,31 @@
-{{ range $serverName, $server := $.Servers -}}
-{{ if and $.HTTPS $server.SSL -}}
+{{- range $serverName, $server := $.Servers }}
+{{- if and $.HTTPS $server.SSL }}
 server {
     listen  80;
     server_name  {{ $serverName }};
     include proxy.conf;
-{{ range $uri, $location := $server.Locations -}}
-{{ if $location.HttpsOnly -}}
-{{ if eq $uri "/" }}
+{{- range $uri, $location := $server.Locations }}
+{{- if $location.HttpsOnly }}
+{{- if eq $uri "/" }}
     location / {
-{{ else }}
+{{- else }}
     location /{{ $uri }}/ {
-{{ end -}}
+{{- end }}
         return 301 https://$server_name$request_uri;
     }
-{{ else }}
-{{ if eq $uri "/" }}
+{{- else }}
+{{- if eq $uri "/" }}
     location / {
-{{ else }}
+{{- else }}
     location /{{ $uri }}/ {
         rewrite /{{ $uri }}/(.*) /$1 break;
-{{ end -}}
+{{- end }}
         proxy_pass  http://{{ $location.Upstream }};
         access_log  {{ $.LogPath }}{{ $serverName }}___{{ $location.Upstream }}.access.log  main;
     }
-{{ end -}}
-{{ end -}}
+{{- end }}
+{{- end }}
 }
-
 server {
     listen 443 ssl;
     server_name  {{ $serverName }};
@@ -35,35 +34,34 @@ server {
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
     ssl_ciphers  HIGH:!aNULL:!MD5;
     include proxy.conf;
-{{ range $uri, $location := $server.Locations -}}
-{{ if eq $uri "/" }}
+{{- range $uri, $location := $server.Locations }}
+{{- if eq $uri "/" }}
     location / {
-{{ else }}
+{{- else }}
     location /{{ $uri }}/ {
         rewrite /{{ $uri }}/(.*) /$1 break;
-{{ end -}}
+{{- end }}
         proxy_pass  http://{{ $location.Upstream }};
         access_log  {{ $.LogPath }}{{ $serverName }}___{{ $location.Upstream }}.access.log  main;
     }
-{{ end -}}
+{{- end }}
 }
-{{ else -}}
+{{- else }}
 server {
     listen  80;
     server_name  {{ $serverName }};
     include proxy.conf;
-{{ range $uri, $location := $server.Locations -}}
-{{ if eq $uri "/" }}
+{{- range $uri, $location := $server.Locations }}
+{{- if eq $uri "/" }}
     location / {
-{{ else }}
+{{- else }}
     location /{{ $uri }}/ {
         rewrite /{{ $uri }}/(.*) /$1 break;
-{{ end -}}
+{{- end }}
         proxy_pass  http://{{ $location.Upstream }};
         access_log  {{ $.LogPath }}{{ $serverName }}___{{ $location.Upstream }}.access.log  main;
     }
-{{ end -}}
+{{- end }}
 }
-
-{{ end -}}
-{{ end -}}
+{{- end }}
+{{- end }}
