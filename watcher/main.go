@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/laincloud/webrouter/lainlet"
 	"github.com/laincloud/webrouter/nginx"
+	"github.com/mitchellh/copystructure"
 	"github.com/onrik/logrus/filename"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -60,7 +61,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	var config *nginx.Config
+	var config interface{}
 
 	for {
 		if _, err := os.Stat(pidPath); err != nil {
@@ -73,8 +74,12 @@ func main() {
 			newConfig, ok := <-watchCh
 			if ok {
 				if !reflect.DeepEqual(config, newConfig) {
-					config = newConfig
-					err := nginx.Reload(config, consulAddr, consulPrefix, nginxPath, pidPath, logPath, https, sslPath)
+					config, err = copystructure.Copy(newConfig)
+					if err != nil {
+						log.Errorln(err)
+						continue
+					}
+					err := nginx.Reload(&newConfig, consulAddr, consulPrefix, nginxPath, pidPath, logPath, https, sslPath)
 					if err != nil {
 						log.Errorln(err)
 						continue

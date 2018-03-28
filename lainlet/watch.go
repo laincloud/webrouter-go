@@ -37,8 +37,8 @@ type Annotation struct {
 	HealthCheck string   `json:"healthcheck"`
 }
 
-func WatchConfig(addr string) <-chan *nginx.Config {
-	respCh := make(chan *nginx.Config)
+func WatchConfig(addr string) <-chan nginx.Config {
+	respCh := make(chan nginx.Config)
 	go func() {
 		defer close(respCh)
 		for {
@@ -73,7 +73,7 @@ func WatchConfig(addr string) <-chan *nginx.Config {
 					if err != nil {
 						continue
 					}
-					config := new(nginx.Config)
+					var config nginx.Config
 					config.Servers = make(map[string]nginx.Server)
 					config.Upstreams = make(map[string]string)
 					for k, v := range data.Data {
