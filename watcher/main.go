@@ -25,7 +25,8 @@ func main() {
 	viper.SetDefault("serverName", "localhost")
 	viper.SetDefault("prefix", "lain/webrouter/upstreams/")
 	viper.SetDefault("https", false)
-	viper.SetDefault("serverNamesHashMaxSize", "512")
+	viper.SetDefault("serverNamesHashMaxSize", 512)
+	viper.SetDefault("serverNamesHashBucketSize",64)
 	viper.SetDefault("debug", false)
 
 	viper.BindEnv("lainlet", "LAINLET_ADDR")
@@ -38,6 +39,7 @@ func main() {
 	viper.BindEnv("prefix", "CONSUL_KEY_PREFIX")
 	viper.BindEnv("https", "HTTPS")
 	viper.BindEnv("serverNamesHashMaxSize", "SERVER_NAMES_HASH_MAX_SIZE")
+	viper.BindEnv("serverNamesHashBucketSize", "SERVER_NAMES_HASH_BUCKET_SIZE")
 	viper.BindEnv("debug", "DEBUG")
 
 	lainletAddr := viper.GetString("lainlet")
@@ -50,13 +52,14 @@ func main() {
 	consulPrefix := viper.GetString("prefix")
 	https := viper.GetBool("https")
 	serverNamesHashMaxSize := viper.GetInt("serverNamesHashMaxSize")
+	serverNamesHashBucketSize := viper.GetInt("serverNamesHashBucketSize")
 	debug := viper.GetBool("debug")
 
 	if debug {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	err := nginx.Init(nginxPath, logPath, serverName, pidPath, https, sslPath, serverNamesHashMaxSize)
+	err := nginx.Init(nginxPath, logPath, serverName, pidPath, https, sslPath, serverNamesHashMaxSize,serverNamesHashBucketSize)
 	if err != nil {
 		log.Fatalln(err)
 	}

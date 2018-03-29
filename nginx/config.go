@@ -30,7 +30,7 @@ type Config struct {
 	Upstreams map[string]string
 }
 
-func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string, serverNamesHashMaxSize int) error {
+func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string, serverNamesHashMaxSize int, serverNamesHashBucketSize int) error {
 	var err error
 
 	nginxConfTmpl, err = template.ParseFiles(nginxPath + "tmpl/nginx.conf.tmpl")
@@ -48,16 +48,17 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 		return err
 	}
 
-	if err := renderNginxConf(nginxPath, logPath, pidPath, serverName, serverNamesHashMaxSize); err != nil {
+	if err := renderNginxConf(nginxPath, logPath, pidPath, serverName, serverNamesHashMaxSize, serverNamesHashBucketSize); err != nil {
 		return err
 	}
 
 	log.WithFields(log.Fields{
-		"nginxPath":              nginxPath,
-		"logPath":                logPath,
-		"pidPath":                pidPath,
-		"serverName":             serverName,
-		"serverNamesHashMaxSize": serverNamesHashMaxSize,
+		"nginxPath":                 nginxPath,
+		"logPath":                   logPath,
+		"pidPath":                   pidPath,
+		"serverName":                serverName,
+		"serverNamesHashMaxSize":    serverNamesHashMaxSize,
+		"serverNamesHashBucketSize": serverNamesHashBucketSize,
 	}).Debugln("render nginx.conf success")
 
 	if f, err := os.Create(nginxPath + "conf/server.conf"); err != nil {
@@ -113,17 +114,18 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 	return nil
 }
 
-func renderNginxConf(nginxPath string, logPath string, pidPath string, serverName string, serverNamesHashMaxSize int) error {
+func renderNginxConf(nginxPath string, logPath string, pidPath string, serverName string, serverNamesHashMaxSize int, serverNamesHashBucketSize int) error {
 	f, err := os.Create(nginxPath + "conf/nginx.conf")
 	if err != nil {
 		return err
 	}
 	err = nginxConfTmpl.Execute(f, map[string]interface{}{
-		"NginxPath":              nginxPath,
-		"LogPath":                logPath,
-		"PidPath":                pidPath,
-		"ServerName":             serverName,
-		"ServerNamesHashMaxSize": serverNamesHashMaxSize,
+		"NginxPath":                 nginxPath,
+		"LogPath":                   logPath,
+		"PidPath":                   pidPath,
+		"ServerName":                serverName,
+		"ServerNamesHashMaxSize":    serverNamesHashMaxSize,
+		"ServerNamesHashBucketSize": serverNamesHashBucketSize,
 	})
 	if err != nil {
 		f.Close()
