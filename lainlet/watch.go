@@ -75,7 +75,7 @@ func WatchConfig(addr string) <-chan nginx.Config {
 					}
 					var config nginx.Config
 					config.Servers = make(map[string]nginx.Server)
-					config.Upstreams = make(map[string]string)
+					config.Upstreams = make(map[string]nginx.Upstream)
 					for k, v := range data.Data {
 						if len(v.PodInfos) < 1 {
 							continue
@@ -119,7 +119,14 @@ func WatchConfig(addr string) <-chan nginx.Config {
 								HttpsOnly: annotation.HttpsOnly,
 							}
 						}
-						config.Upstreams[name] = annotation.HealthCheck
+						var servers []string
+						for _, container := range v.PodInfos {
+							servers = append(servers, container.Containers[0].IP+":"+strconv.Itoa(container.Containers[0].Expose))
+						}
+						config.Upstreams[name] = nginx.Upstream{
+							HealthCheck: annotation.HealthCheck,
+							Servers:     servers,
+						}
 					}
 					respCh <- config
 				}
@@ -170,9 +177,6 @@ func WatchUpstream(addr string) <-chan map[string][]string {
 							continue
 						}
 						name := strings.Replace(k, ".", "_", -1)
-						if len(v.PodInfos) < 1 {
-							continue
-						}
 						for _, container := range v.PodInfos {
 							upstreams[name] = append(upstreams[name], container.Containers[0].IP+":"+strconv.Itoa(container.Containers[0].Expose))
 						}

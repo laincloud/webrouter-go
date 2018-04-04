@@ -25,9 +25,14 @@ type Server struct {
 	Locations map[string]Location
 }
 
+type Upstream struct {
+	HealthCheck string
+	Servers     []string
+}
+
 type Config struct {
 	Servers   map[string]Server
-	Upstreams map[string]string
+	Upstreams map[string]Upstream
 }
 
 func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string, serverNamesHashMaxSize int, serverNamesHashBucketSize int) error {

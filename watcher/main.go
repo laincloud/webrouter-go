@@ -26,7 +26,7 @@ func main() {
 	viper.SetDefault("prefix", "lain/webrouter/upstreams/")
 	viper.SetDefault("https", false)
 	viper.SetDefault("serverNamesHashMaxSize", 512)
-	viper.SetDefault("serverNamesHashBucketSize",64)
+	viper.SetDefault("serverNamesHashBucketSize", 64)
 	viper.SetDefault("debug", false)
 
 	viper.BindEnv("lainlet", "LAINLET_ADDR")
@@ -59,12 +59,12 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	err := nginx.Init(nginxPath, logPath, serverName, pidPath, https, sslPath, serverNamesHashMaxSize,serverNamesHashBucketSize)
+	err := nginx.Init(nginxPath, logPath, serverName, pidPath, https, sslPath, serverNamesHashMaxSize, serverNamesHashBucketSize)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	var config interface{}
+	var servers interface{}
 
 	for {
 		if _, err := os.Stat(pidPath); err != nil {
@@ -76,8 +76,8 @@ func main() {
 		for {
 			newConfig, ok := <-watchCh
 			if ok {
-				if !reflect.DeepEqual(config, newConfig) {
-					config, err = copystructure.Copy(newConfig)
+				if !reflect.DeepEqual(servers, newConfig.Servers) {
+					servers, err = copystructure.Copy(newConfig.Servers)
 					if err != nil {
 						log.Errorln(err)
 						continue
