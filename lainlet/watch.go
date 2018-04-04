@@ -7,6 +7,7 @@ import (
 	"github.com/laincloud/webrouter/nginx"
 	log "github.com/sirupsen/logrus"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -121,7 +122,18 @@ func WatchConfig(addr string) <-chan nginx.Config {
 						}
 						var servers []string
 						for _, container := range v.PodInfos {
-							servers = append(servers, container.Containers[0].IP+":"+strconv.Itoa(container.Containers[0].Expose))
+							if container.Containers[0].IP != "" {
+								addr := container.Containers[0].IP + ":" + strconv.Itoa(container.Containers[0].Expose)
+								_, err := net.ResolveTCPAddr("tcp4", addr)
+								if err != nil {
+									log.Errorln(err)
+									continue
+								}
+								servers = append(servers, addr)
+							}
+						}
+						if len(servers) == 0 {
+							servers = append(servers, "127.0.0.1:11111")
 						}
 						config.Upstreams[name] = nginx.Upstream{
 							HealthCheck: annotation.HealthCheck,
@@ -178,7 +190,18 @@ func WatchUpstream(addr string) <-chan map[string][]string {
 						}
 						name := strings.Replace(k, ".", "_", -1)
 						for _, container := range v.PodInfos {
-							upstreams[name] = append(upstreams[name], container.Containers[0].IP+":"+strconv.Itoa(container.Containers[0].Expose))
+							if container.Containers[0].IP != "" {
+								addr := container.Containers[0].IP + ":" + strconv.Itoa(container.Containers[0].Expose)
+								_, err := net.ResolveTCPAddr("tcp4", addr)
+								if err != nil {
+									log.Errorln(err)
+									continue
+								}
+								upstreams[name] = append(upstreams[name], addr)
+							}
+						}
+						if len(upstreams[name]) == 0 {
+							upstreams[name] = append(upstreams[name], "127.0.0.1:11111")
 						}
 					}
 					respCh <- upstreams

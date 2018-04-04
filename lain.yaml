@@ -26,7 +26,6 @@ worker.worker:
     - NGINX_PATH=/usr/local/openresty/nginx/
     - NGINX_PID_PATH=/var/run/nginx.pid
     - NGINX_LOG_PATH=/var/log/nginx/
-    - NGINX_SSL_PATH=/etc/nginx/ssl/
     - NGINX_SERVER_NAME=webrouter.lain.local
     - HTTPS=false
     - SERVER_NAMES_HASH_MAX_SIZE=512
@@ -35,15 +34,14 @@ worker.worker:
   cpu: 8
   memory: 2g
   volumes:
-    - /etc/nginx/ssl
     - /var/log/nginx
 
 worker.confd:
-  image: laincloud/webrouter-confd:201803271724
+  image: laincloud/webrouter-confd:201804081053
   cmd: /usr/local/bin/confd
   env:
     - LAINLET_ADDR=lainlet.lain:9001
     - CONSUL_ADDR=consul.lain:8500
     - CONSUL_KEY_PREFIX=lain/webrouter/upstreams/
-  cpu: 0
+  cpu: 2
   memory: 512m
