@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"github.com/laincloud/webrouter/graphite"
 	"github.com/laincloud/webrouter/lainlet"
 	"github.com/laincloud/webrouter/nginx"
 	"github.com/mitchellh/copystructure"
@@ -8,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
+	"os/exec"
 	"reflect"
 	"time"
 )
@@ -28,6 +31,9 @@ func main() {
 	viper.SetDefault("serverNamesHashMaxSize", 512)
 	viper.SetDefault("serverNamesHashBucketSize", 64)
 	viper.SetDefault("debug", false)
+	viper.SetDefault("graphite", false)
+	viper.SetDefault("graphiteHost", nil)
+	viper.SetDefault("graphitePort", nil)
 
 	viper.BindEnv("lainlet", "LAINLET_ADDR")
 	viper.BindEnv("consul", "CONSUL_ADDR")
@@ -41,6 +47,9 @@ func main() {
 	viper.BindEnv("serverNamesHashMaxSize", "SERVER_NAMES_HASH_MAX_SIZE")
 	viper.BindEnv("serverNamesHashBucketSize", "SERVER_NAMES_HASH_BUCKET_SIZE")
 	viper.BindEnv("debug", "DEBUG")
+	viper.BindEnv("graphite", "GRAPHITE_ENABLE")
+	viper.BindEnv("graphiteHost", "GRAPHITE_HOST")
+	viper.BindEnv("graphitePort", "GRAPHITE_PORT")
 
 	lainletAddr := viper.GetString("lainlet")
 	consulAddr := viper.GetString("consul")
@@ -54,7 +63,13 @@ func main() {
 	serverNamesHashMaxSize := viper.GetInt("serverNamesHashMaxSize")
 	serverNamesHashBucketSize := viper.GetInt("serverNamesHashBucketSize")
 	debug := viper.GetBool("debug")
-
+	graphiteEnable := viper.GetBool("graphite")
+	var graphiteHost string
+	var graphitePort int
+	if graphiteEnable {
+		graphiteHost = viper.GetString("graphiteHost")
+		graphitePort = viper.GetInt("graphitePort")
+	}
 	if debug {
 		log.SetLevel(log.DebugLevel)
 	}
@@ -64,10 +79,22 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	health := 1
+
+	ticker := time.NewTicker(1 * time.Minute)
+	if graphiteEnable {
+		go func() {
+			for range ticker.C {
+				graphite.SendOpenRestyMetrics(graphiteHost, graphitePort, health)
+			}
+		}()
+	}
+
 	var servers interface{}
 
 	for {
 		if _, err := os.Stat(pidPath); err != nil {
+			health = 0
 			log.Errorln(err)
 			time.Sleep(time.Second)
 			continue
@@ -76,16 +103,36 @@ func main() {
 		for {
 			newConfig, ok := <-watchCh
 			if ok {
+				if newConfig.Invalid {
+					health = 0
+					continue
+				}
 				if !reflect.DeepEqual(servers, newConfig.Servers) {
 					servers, err = copystructure.Copy(newConfig.Servers)
 					if err != nil {
+						health = 0
 						log.Errorln(err)
 						continue
 					}
-					err := nginx.Reload(&newConfig, consulAddr, consulPrefix, nginxPath, pidPath, logPath, https, sslPath)
-					if err != nil {
+					if err := nginx.Render(&newConfig, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath); err != nil {
+						health = 0
 						log.Errorln(err)
 						continue
+					}
+					cmd := exec.Command("nginx", "-t")
+					var stderr bytes.Buffer
+					cmd.Stderr = &stderr
+					if err != nil {
+						health = 0
+						log.Errorln(err)
+						log.Errorln(string(stderr.Bytes()))
+						continue
+					}
+					if err := nginx.Reload(pidPath); err != nil {
+						health = 0
+						log.Errorln(err)
+					} else {
+						health = 1
 					}
 				}
 			}

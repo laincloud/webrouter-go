@@ -33,6 +33,7 @@ type Upstream struct {
 type Config struct {
 	Servers   map[string]Server
 	Upstreams map[string]Upstream
+	Invalid   bool
 }
 
 func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string, serverNamesHashMaxSize int, serverNamesHashBucketSize int) error {
@@ -222,7 +223,7 @@ func render(config *Config, consulAddr string, consulPrefix string, nginxPath st
 	return nil
 }
 
-func reload(path string) error {
+func Reload(path string) error {
 	pidfile.SetPidfilePath(path)
 	pid, err := pidfile.Read()
 	if err != nil {
@@ -239,18 +240,9 @@ func reload(path string) error {
 	return nil
 }
 
-func Reload(config *Config, consulAddr string, consulPrefix, nginxPath string, pidPath string, logPath string, https bool, sslPath string) error {
+func Render(config *Config, consulAddr string, consulPrefix, nginxPath string, logPath string, https bool, sslPath string) error {
 	if https {
 		matchSSL(config)
 	}
-
-	if err := render(config, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath); err != nil {
-		return err
-	}
-
-	if err := reload(pidPath); err != nil {
-		return err
-	}
-
-	return nil
+	return render(config, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath)
 }

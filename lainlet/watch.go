@@ -111,6 +111,10 @@ func WatchConfig(addr string) <-chan nginx.Config {
 										"upstream1":  config.Servers[serverName].Locations[uri].Upstream,
 										"upstream2":  name,
 									}).Errorln("duplicate location !")
+									config.Servers = nil
+									config.Upstreams = nil
+									config.Invalid = true
+									respCh <- config
 									goto START2
 								}
 							}

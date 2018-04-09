@@ -31,6 +31,7 @@ worker.worker:
     - SERVER_NAMES_HASH_MAX_SIZE=512
     - SERVER_NAMES_HASH_BUCKET_SIZE=64
     - DEBUG=false
+    - GRAPHITE_ENABLE=false
   cpu: 8
   memory: 2g
   volumes:
@@ -43,5 +44,6 @@ worker.confd:
     - LAINLET_ADDR=lainlet.lain:9001
     - CONSUL_ADDR=consul.lain:8500
     - CONSUL_KEY_PREFIX=lain/webrouter/upstreams/
+    - GRAPHITE_ENABLE=false
   cpu: 2
   memory: 512m
