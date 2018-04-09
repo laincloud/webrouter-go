@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/laincloud/webrouter/nginx"
 	log "github.com/sirupsen/logrus"
 	"io"
@@ -46,7 +47,9 @@ func WatchConfig(addr string) <-chan nginx.Config {
 		START1:
 			resp, err := http.Get("http://" + addr + "/v2/webrouter/webprocs?watch=1")
 			if err != nil {
-				log.Errorln(err)
+				respCh <- nginx.Config{
+					Err: err,
+				}
 				continue
 			}
 			reader := bufio.NewReader(resp.Body)
@@ -55,12 +58,13 @@ func WatchConfig(addr string) <-chan nginx.Config {
 				data := new(WebrouterInfo)
 				line, err := reader.ReadBytes('\n')
 				if err != nil {
+					respCh <- nginx.Config{
+						Err: err,
+					}
 					if err == io.EOF {
-						log.Errorln(err)
 						time.Sleep(time.Second)
 						goto START1
 					} else {
-						log.Errorln(err)
 						continue
 					}
 				}
@@ -72,6 +76,7 @@ func WatchConfig(addr string) <-chan nginx.Config {
 				if key == "data" {
 					err := json.Unmarshal(bytes.TrimSpace(fields[1]), &data.Data)
 					if err != nil {
+						log.Errorln(err)
 						continue
 					}
 					var config nginx.Config
@@ -105,16 +110,11 @@ func WatchConfig(addr string) <-chan nginx.Config {
 								}
 							} else {
 								if config.Servers[serverName].Locations[uri].Upstream != "" {
-									log.WithFields(log.Fields{
-										"servername": serverName,
-										"location":   uri,
-										"upstream1":  config.Servers[serverName].Locations[uri].Upstream,
-										"upstream2":  name,
-									}).Errorln("duplicate location !")
-									config.Servers = nil
-									config.Upstreams = nil
-									config.Invalid = true
-									respCh <- config
+									respCh <- nginx.Config{
+										Err: errors.New("servername: " + serverName + " location: " + uri +
+											" upstream1: " + config.Servers[serverName].Locations[uri].Upstream +
+											" upstream2: " + name + " duplicate location !"),
+									}
 									goto START2
 								}
 							}
@@ -137,6 +137,7 @@ func WatchConfig(addr string) <-chan nginx.Config {
 							}
 						}
 						if len(servers) == 0 {
+							log.Errorln("no servers are inside upstream " + name)
 							servers = append(servers, "127.0.0.1:11111")
 						}
 						config.Upstreams[name] = nginx.Upstream{
@@ -145,70 +146,6 @@ func WatchConfig(addr string) <-chan nginx.Config {
 						}
 					}
 					respCh <- config
-				}
-			}
-		}
-	}()
-	return respCh
-}
-
-func WatchUpstream(addr string) <-chan map[string][]string {
-	respCh := make(chan map[string][]string)
-	go func() {
-		defer close(respCh)
-	START:
-		for {
-			resp, err := http.Get("http://" + addr + "/v2/webrouter/webprocs?watch=1")
-			if err != nil {
-				log.Errorln(err)
-				continue
-			}
-			reader := bufio.NewReader(resp.Body)
-			for {
-				data := new(WebrouterInfo)
-				line, err := reader.ReadBytes('\n')
-				if err != nil {
-					if err == io.EOF {
-						log.Errorln(err)
-						time.Sleep(time.Second)
-						goto START
-					} else {
-						log.Errorln(err)
-						continue
-					}
-				}
-				fields := bytes.SplitN(bytes.TrimSpace(line), []byte{':'}, 2)
-				if len(fields) < 2 {
-					continue
-				}
-				key := string(bytes.TrimSpace(fields[0]))
-				if key == "data" {
-					err := json.Unmarshal(bytes.TrimSpace(fields[1]), &data.Data)
-					if err != nil {
-						continue
-					}
-					upstreams := make(map[string][]string)
-					for k, v := range data.Data {
-						if len(v.PodInfos) < 1 {
-							continue
-						}
-						name := strings.Replace(k, ".", "_", -1)
-						for _, container := range v.PodInfos {
-							if container.Containers[0].IP != "" {
-								addr := container.Containers[0].IP + ":" + strconv.Itoa(container.Containers[0].Expose)
-								_, err := net.ResolveTCPAddr("tcp4", addr)
-								if err != nil {
-									log.Errorln(err)
-									continue
-								}
-								upstreams[name] = append(upstreams[name], addr)
-							}
-						}
-						if len(upstreams[name]) == 0 {
-							upstreams[name] = append(upstreams[name], "127.0.0.1:11111")
-						}
-					}
-					respCh <- upstreams
 				}
 			}
 		}

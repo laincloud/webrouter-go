@@ -33,7 +33,7 @@ type Upstream struct {
 type Config struct {
 	Servers   map[string]Server
 	Upstreams map[string]Upstream
-	Invalid   bool
+	Err       error
 }
 
 func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string, serverNamesHashMaxSize int, serverNamesHashBucketSize int) error {

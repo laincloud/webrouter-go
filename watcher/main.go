@@ -103,8 +103,9 @@ func main() {
 		for {
 			newConfig, ok := <-watchCh
 			if ok {
-				if newConfig.Invalid {
+				if newConfig.Err != nil {
 					health = 0
+					log.Errorln(newConfig.Err)
 					continue
 				}
 				if !reflect.DeepEqual(servers, newConfig.Servers) {

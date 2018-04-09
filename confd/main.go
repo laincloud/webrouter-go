@@ -62,57 +62,49 @@ func main() {
 		}()
 	}
 
+	watchCh := lainlet.WatchConfig(lainletAddr)
 	for {
-		watchCh := lainlet.WatchUpstream(lainletAddr)
-		for {
-			upstreams, ok := <-watchCh
-			if ok {
-				for k, newServers := range upstreams {
-					key := prefix + k
-					var servers []string
-					for {
-						servers, _, err = client.KV().Keys(key, "", &api.QueryOptions{RequireConsistent: true})
-						if err != nil {
-							health = 0
-							log.Errorln(err)
-						} else {
-							break
-						}
+	START:
+		config, ok := <-watchCh
+		if ok {
+			if config.Err != nil {
+				health = 0
+				log.Errorln(config.Err)
+				continue
+			}
+			for k, upstream := range config.Upstreams {
+				key := prefix + k
+				var servers []string
+				servers, _, err = client.KV().Keys(key, "", &api.QueryOptions{RequireConsistent: true})
+				if err != nil {
+					health = 0
+					log.Errorln(err)
+					goto START
+				}
+				for i, server := range servers {
+					servers[i] = server[len(key)+1:]
+				}
+				deleted, added := diff(servers, upstream.Servers)
+				for _, server := range added {
+					p := &api.KVPair{Key: key + "/" + server, Value: []byte("")}
+					_, err := client.KV().Put(p, nil)
+					if err != nil {
+						health = 0
+						log.Errorln(err)
+						goto START
 					}
+				}
 
-					for i, server := range servers {
-						servers[i] = server[len(key)+1:]
+				for _, server := range deleted {
+					_, err := client.KV().Delete(key+"/"+server, nil)
+					if err != nil {
+						health = 0
+						log.Errorln(err)
+						goto START
 					}
-					deleted, added := diff(servers, newServers)
-					for _, server := range added {
-						p := &api.KVPair{Key: key + "/" + server, Value: []byte("")}
-						for {
-							_, err := client.KV().Put(p, nil)
-							if err != nil {
-								health = 0
-								log.Errorln(err)
-							} else {
-								break
-							}
-						}
-
-					}
-
-					for _, server := range deleted {
-						for {
-							_, err := client.KV().Delete(key+"/"+server, nil)
-							if err != nil {
-								health = 0
-								log.Errorln(err)
-							} else {
-								break
-							}
-						}
-
-					}
-					health = 1
 				}
 			}
+			health = 1
 		}
 	}
 }

@@ -36,7 +36,7 @@ worker.worker:
     - /var/log/nginx
 
 worker.confd:
-  image: laincloud/webrouter-confd:201804091605
+  image: laincloud/webrouter-confd:201804091731
   cmd: /usr/local/bin/confd
   env:
     - LAINLET_ADDR=lainlet.lain:9001
