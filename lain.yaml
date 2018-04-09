@@ -2,8 +2,6 @@ appname: webrouter
 
 build:
   base: laincloud/golang:1.10
-  prepare:
-      version: "236"
   script:
     - mkdir -p /go/src/github.com/laincloud/webrouter
     - cp -r /lain/app/* /go/src/github.com/laincloud/webrouter
@@ -38,7 +36,7 @@ worker.worker:
     - /var/log/nginx
 
 worker.confd:
-  image: laincloud/webrouter-confd:201804081053
+  image: laincloud/webrouter-confd:201804091605
   cmd: /usr/local/bin/confd
   env:
     - LAINLET_ADDR=lainlet.lain:9001
