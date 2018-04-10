@@ -109,7 +109,7 @@ func main() {
 					continue
 				}
 				if !reflect.DeepEqual(servers, newConfig.Servers) {
-					servers, err = copystructure.Copy(newConfig.Servers)
+					newServers, err := copystructure.Copy(newConfig.Servers)
 					if err != nil {
 						health = 0
 						log.Errorln(err)
@@ -132,9 +132,12 @@ func main() {
 					if err := nginx.Reload(pidPath); err != nil {
 						health = 0
 						log.Errorln(err)
-					} else {
-						health = 1
+						continue
 					}
+					servers = newServers
+					health = 1
+				} else {
+					health = 1
 				}
 			}
 		}
