@@ -108,37 +108,35 @@ func main() {
 					log.Errorln(newConfig.Err)
 					continue
 				}
+				newServers, err := copystructure.Copy(newConfig.Servers)
+				if err != nil {
+					health = 0
+					log.Errorln(err)
+					continue
+				}
+				if err := nginx.Render(&newConfig, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath); err != nil {
+					health = 0
+					log.Errorln(err)
+					continue
+				}
+				cmd := exec.Command("nginx", "-t")
+				var stderr bytes.Buffer
+				cmd.Stderr = &stderr
+				if err != nil {
+					health = 0
+					log.Errorln(err)
+					log.Errorln(string(stderr.Bytes()))
+					continue
+				}
 				if !reflect.DeepEqual(servers, newConfig.Servers) {
-					newServers, err := copystructure.Copy(newConfig.Servers)
-					if err != nil {
-						health = 0
-						log.Errorln(err)
-						continue
-					}
-					if err := nginx.Render(&newConfig, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath); err != nil {
-						health = 0
-						log.Errorln(err)
-						continue
-					}
-					cmd := exec.Command("nginx", "-t")
-					var stderr bytes.Buffer
-					cmd.Stderr = &stderr
-					if err != nil {
-						health = 0
-						log.Errorln(err)
-						log.Errorln(string(stderr.Bytes()))
-						continue
-					}
 					if err := nginx.Reload(pidPath); err != nil {
 						health = 0
 						log.Errorln(err)
 						continue
 					}
 					servers = newServers
-					health = 1
-				} else {
-					health = 1
 				}
+				health = 1
 			}
 		}
 	}
