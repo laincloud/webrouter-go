@@ -145,6 +145,7 @@ func WatchConfig(addr string) <-chan nginx.Config {
 							Servers:     servers,
 						}
 					}
+					config.Err = nil
 					respCh <- config
 				}
 			}

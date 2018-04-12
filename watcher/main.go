@@ -79,7 +79,16 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	health := 1
+	for {
+		if _, err := os.Stat(pidPath); err != nil {
+			log.Errorln(err)
+			time.Sleep(time.Second)
+		} else {
+			break
+		}
+	}
+
+	health := 0
 
 	ticker := time.NewTicker(1 * time.Minute)
 	if graphiteEnable {
@@ -91,53 +100,44 @@ func main() {
 	}
 
 	var servers interface{}
-
+	watchCh := lainlet.WatchConfig(lainletAddr)
 	for {
-		if _, err := os.Stat(pidPath); err != nil {
-			health = 0
-			log.Errorln(err)
-			time.Sleep(time.Second)
-			continue
-		}
-		watchCh := lainlet.WatchConfig(lainletAddr)
-		for {
-			newConfig, ok := <-watchCh
-			if ok {
-				if newConfig.Err != nil {
-					health = 0
-					log.Errorln(newConfig.Err)
-					continue
-				}
-				newServers, err := copystructure.Copy(newConfig.Servers)
-				if err != nil {
-					health = 0
-					log.Errorln(err)
-					continue
-				}
-				if err := nginx.Render(&newConfig, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath); err != nil {
-					health = 0
-					log.Errorln(err)
-					continue
-				}
-				cmd := exec.Command("nginx", "-t")
-				var stderr bytes.Buffer
-				cmd.Stderr = &stderr
-				if err != nil {
-					health = 0
-					log.Errorln(err)
-					log.Errorln(string(stderr.Bytes()))
-					continue
-				}
-				if !reflect.DeepEqual(servers, newConfig.Servers) {
-					if err := nginx.Reload(pidPath); err != nil {
-						health = 0
-						log.Errorln(err)
-						continue
-					}
-					servers = newServers
-				}
-				health = 1
+		newConfig, ok := <-watchCh
+		if ok {
+			if newConfig.Err != nil {
+				health = 0
+				log.Errorln(newConfig.Err)
+				continue
 			}
+			newServers, err := copystructure.Copy(newConfig.Servers)
+			if err != nil {
+				health = 0
+				log.Errorln(err)
+				continue
+			}
+			if err := nginx.Render(&newConfig, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath); err != nil {
+				health = 0
+				log.Errorln(err)
+				continue
+			}
+			cmd := exec.Command("nginx", "-t")
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			if err != nil {
+				health = 0
+				log.Errorln(err)
+				log.Errorln(string(stderr.Bytes()))
+				continue
+			}
+			if !reflect.DeepEqual(servers, newConfig.Servers) {
+				if err := nginx.Reload(pidPath); err != nil {
+					health = 0
+					log.Errorln(err)
+					continue
+				}
+				servers = newServers
+			}
+			health = 1
 		}
 	}
 }
