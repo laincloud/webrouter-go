@@ -90,8 +90,8 @@ func main() {
 
 	health := 0
 
-	ticker := time.NewTicker(1 * time.Minute)
 	if graphiteEnable {
+		ticker := time.NewTicker(1 * time.Minute)
 		go func() {
 			for range ticker.C {
 				graphite.SendOpenRestyMetrics(graphiteHost, graphitePort, health)
