@@ -98,7 +98,18 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 		return err
 	}
 
-	log.Debugln("mkdir upstreams success")
+	log.Debugln("mkdir " + nginxPath + "upstreams success")
+
+	_, err = os.Stat(logPath)
+	if os.IsNotExist(err) {
+		if err := os.Mkdir(logPath, os.ModePerm); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	log.Debugln("mkdir " + logPath + " success")
 
 	if https {
 		if err := loadCrt(sslPath); err != nil {
