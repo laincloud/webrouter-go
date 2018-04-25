@@ -36,8 +36,17 @@ http {
     chunked_transfer_encoding on;
 
     server {
+        listen 80 default_server;
+        listen 443 ssl default_server;
+        server_name _;
+        ssl_certificate /usr/local/openresty/nginx/ssl/nginx.crt;
+        ssl_certificate_key /usr/local/openresty/nginx/ssl/nginx.key;
+        return 444;
+    }
+
+    server {
         listen 80;
-        server_name  {{ $.ServerName }};
+        server_name  localhost {{ $.ServerName }};
 
         location = /upstream_show {
             upstream_show;
