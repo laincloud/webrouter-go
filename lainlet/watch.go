@@ -83,45 +83,48 @@ func WatchConfig(addr string) <-chan nginx.Config {
 					config.Servers = make(map[string]nginx.Server)
 					config.Upstreams = make(map[string]nginx.Upstream)
 					for k, v := range data.Data {
+						s := strings.Split(k, ".")
+						if len(s) != 3 {
+							continue
+						}
 						if len(v.PodInfos) < 1 {
 							continue
 						}
 						name := strings.Replace(k, ".", "_", -1)
 						annotation := new(Annotation)
 						json.Unmarshal([]byte(v.PodInfos[0].Annotation), annotation)
-						if len(annotation.MountPoint) < 1 {
-							continue
-						}
-						for _, mountPoint := range annotation.MountPoint {
-							var serverName, uri string
-							if mountPoint[len(mountPoint)-1] == '/' {
-								mountPoint = mountPoint[0 : len(mountPoint)-1]
-							}
-							if strings.Index(mountPoint, "/") > 0 {
-								serverName = mountPoint[0:strings.Index(mountPoint, "/")]
-								uri = mountPoint[strings.Index(mountPoint, "/")+1:]
-							} else {
-								serverName = mountPoint
-								uri = "/"
-							}
-							if _, ok := config.Servers[serverName]; !ok {
-								config.Servers[serverName] = nginx.Server{
-									Locations: make(map[string]nginx.Location),
+						if !strings.HasSuffix(s[2], "_canary") {
+							for _, mountPoint := range annotation.MountPoint {
+								var serverName, uri string
+								if mountPoint[len(mountPoint)-1] == '/' {
+									mountPoint = mountPoint[0 : len(mountPoint)-1]
 								}
-							} else {
-								if config.Servers[serverName].Locations[uri].Upstream != "" {
-									respCh <- nginx.Config{
-										Err: errors.New("servername: " + serverName + " location: " + uri +
-											" upstream1: " + config.Servers[serverName].Locations[uri].Upstream +
-											" upstream2: " + name + " duplicate location !"),
+								if strings.Index(mountPoint, "/") > 0 {
+									serverName = mountPoint[0:strings.Index(mountPoint, "/")]
+									uri = mountPoint[strings.Index(mountPoint, "/")+1:]
+								} else {
+									serverName = mountPoint
+									uri = "/"
+								}
+								if _, ok := config.Servers[serverName]; !ok {
+									config.Servers[serverName] = nginx.Server{
+										Locations: make(map[string]nginx.Location),
 									}
-									goto START2
+								} else {
+									if config.Servers[serverName].Locations[uri].Upstream != "" {
+										respCh <- nginx.Config{
+											Err: errors.New("servername: " + serverName + " location: " + uri +
+												" upstream1: " + config.Servers[serverName].Locations[uri].Upstream +
+												" upstream2: " + name + " duplicate location !"),
+										}
+										goto START2
+									}
 								}
-							}
 
-							config.Servers[serverName].Locations[uri] = nginx.Location{
-								Upstream:  name,
-								HttpsOnly: annotation.HttpsOnly,
+								config.Servers[serverName].Locations[uri] = nginx.Location{
+									Upstream:  name,
+									HttpsOnly: annotation.HttpsOnly,
+								}
 							}
 						}
 						var servers []string

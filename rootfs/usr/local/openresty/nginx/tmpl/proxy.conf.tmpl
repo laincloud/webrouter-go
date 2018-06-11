@@ -26,3 +26,15 @@ proxy_buffer_size 4k;
 proxy_buffers 8 1m;
 proxy_busy_buffers_size 2m;
 proxy_max_temp_file_size 0;
+
+{{- if $.ABTest }}
+set $redis_sentinel "{{ $.RedisConf.Sentinel }}";
+set $redis_master_name "{{ $.RedisConf.MasterName }}";
+set $redis_role "{{ $.RedisConf.Role }}";
+set $redis_password "{{ $.RedisConf.Password }}";
+set $redis_connect_timeout {{ $.RedisConf.ConnectTimeout }};
+set $redis_read_timeout {{ $.RedisConf.ReadTimeout }};
+set $redis_dbid {{ $.RedisConf.DBID }};
+set $redis_pool_size {{ $.RedisConf.PoolSize }};
+set $redis_keepalive_timeout {{ $.RedisConf.KeepaliveTimeout }};
+{{- end }}

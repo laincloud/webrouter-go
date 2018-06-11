@@ -12,12 +12,13 @@ import (
 	"text/template"
 )
 
-var nginxConfTmpl, upstreamTmpl, serverTmpl *template.Template
+var nginxConfTmpl, upstreamTmpl, serverTmpl, proxyConfTmpl *template.Template
 var certs map[string]*x509.Certificate
 
 type Location struct {
 	Upstream  string
 	HttpsOnly bool
+	ABTest    bool
 }
 
 type Server struct {
@@ -36,38 +37,130 @@ type Config struct {
 	Err       error
 }
 
-func Init(nginxPath string, logPath string, serverName string, pidPath string, https bool, sslPath string, serverNamesHashMaxSize int, serverNamesHashBucketSize int) error {
+type RedisConf struct {
+	Sentinel         string
+	MasterName       string
+	Role             string
+	Password         string
+	ConnectTimeout   int
+	ReadTimeout      int
+	DBID             int
+	PoolSize         int
+	KeepaliveTimeout int
+}
+
+type InitConf struct {
+	NginxPath                 string
+	LogPath                   string
+	ServerName                string
+	PidPath                   string
+	HTTPS                     bool
+	SSLPath                   string
+	ServerNamesHashMaxSize    int
+	ServerNamesHashBucketSize int
+	ABTest                    bool
+	RedisConf                 RedisConf
+}
+
+type NginxConf struct {
+	NginxPath                 string
+	LogPath                   string
+	ServerName                string
+	PidPath                   string
+	ServerNamesHashMaxSize    int
+	ServerNamesHashBucketSize int
+	ABTest                    bool
+	RedisConf                 RedisConf
+}
+
+type ProxyConf struct {
+	NginxPath string
+	ABTest    bool
+	RedisConf RedisConf
+}
+
+type RenderConf struct {
+	NginxPath    string
+	LogPath      string
+	HTTPS        bool
+	SSLPath      string
+	ConsulAddr   string
+	ConsulPrefix string
+	ABTest       bool
+	RedisConf    RedisConf
+}
+
+type ServerConf struct {
+	NginxPath string
+	LogPath   string
+	HTTPS     bool
+	SSLPath   string
+	ABTest    bool
+}
+
+type UpstreamConf struct {
+	NginxPath    string
+	ConsulAddr   string
+	ConsulPrefix string
+}
+
+func replace(input, from, to string) string {
+	return strings.Replace(input, from, to, -1)
+}
+
+func Init(conf InitConf) error {
 	var err error
 
-	nginxConfTmpl, err = template.ParseFiles(nginxPath + "tmpl/nginx.conf.tmpl")
+	nginxConfTmpl, err = template.ParseFiles(conf.NginxPath + "tmpl/nginx.conf.tmpl")
 	if err != nil {
 		return err
 	}
 
-	upstreamTmpl, err = template.ParseFiles(nginxPath + "tmpl/upstream.conf.tmpl")
+	proxyConfTmpl, err = template.ParseFiles(conf.NginxPath + "tmpl/proxy.conf.tmpl")
 	if err != nil {
 		return err
 	}
 
-	serverTmpl, err = template.ParseFiles(nginxPath + "tmpl/server.conf.tmpl")
+	upstreamTmpl, err = template.ParseFiles(conf.NginxPath + "tmpl/upstream.conf.tmpl")
 	if err != nil {
 		return err
 	}
 
-	if err := renderNginxConf(nginxPath, logPath, pidPath, serverName, serverNamesHashMaxSize, serverNamesHashBucketSize); err != nil {
+	serverTmpl, err = template.ParseFiles(conf.NginxPath + "tmpl/server.conf.tmpl")
+	if err != nil {
 		return err
 	}
 
-	log.WithFields(log.Fields{
-		"nginxPath":                 nginxPath,
-		"logPath":                   logPath,
-		"pidPath":                   pidPath,
-		"serverName":                serverName,
-		"serverNamesHashMaxSize":    serverNamesHashMaxSize,
-		"serverNamesHashBucketSize": serverNamesHashBucketSize,
-	}).Debugln("render nginx.conf success")
+	nginxConf := NginxConf{
+		NginxPath:                 conf.NginxPath,
+		LogPath:                   conf.LogPath,
+		ServerName:                conf.ServerName,
+		PidPath:                   conf.PidPath,
+		ServerNamesHashMaxSize:    conf.ServerNamesHashMaxSize,
+		ServerNamesHashBucketSize: conf.ServerNamesHashBucketSize,
+		ABTest:    conf.ABTest,
+		RedisConf: conf.RedisConf,
+	}
 
-	if f, err := os.Create(nginxPath + "conf/server.conf"); err != nil {
+	if err := renderNginxConf(nginxConf); err != nil {
+		return err
+	}
+
+	log.Debugln("render nginx.conf success")
+
+	proxyConf := ProxyConf{
+		NginxPath: conf.NginxPath,
+		ABTest:    conf.ABTest,
+		RedisConf: conf.RedisConf,
+	}
+
+	if err := renderProxyConf(proxyConf); err != nil {
+		return err
+	}
+
+	log.Debugln("render proxy.conf success")
+
+	if f, err := os.Create(conf.NginxPath + "conf/server.conf"); err != nil {
 		return err
 	} else {
 		err = f.Close()
@@ -78,7 +171,7 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 
 	log.Debugln("create server.conf success")
 
-	if f, err := os.Create(nginxPath + "conf/upstream.conf"); err != nil {
+	if f, err := os.Create(conf.NginxPath + "conf/upstream.conf"); err != nil {
 		return err
 	} else {
 		err = f.Close()
@@ -89,35 +182,35 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 
 	log.Debugln("create upstream.conf success")
 
-	_, err = os.Stat(nginxPath + "upstreams")
+	_, err = os.Stat(conf.NginxPath + "upstreams")
 	if os.IsNotExist(err) {
-		if err := os.Mkdir(nginxPath+"upstreams", os.ModePerm); err != nil {
+		if err := os.Mkdir(conf.NginxPath+"upstreams", os.ModePerm); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	}
 
-	log.Debugln("mkdir " + nginxPath + "upstreams success")
+	log.Debugln("mkdir " + conf.NginxPath + "upstreams success")
 
-	_, err = os.Stat(logPath)
+	_, err = os.Stat(conf.LogPath)
 	if os.IsNotExist(err) {
-		if err := os.Mkdir(logPath, os.ModePerm); err != nil {
+		if err := os.Mkdir(conf.LogPath, os.ModePerm); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	}
 
-	log.Debugln("mkdir " + logPath + " success")
+	log.Debugln("mkdir " + conf.LogPath + " success")
 
-	if https {
-		if err := loadCrt(sslPath); err != nil {
+	if conf.HTTPS {
+		if err := loadCrt(conf.SSLPath); err != nil {
 			return err
 		}
 	}
 
-	if f, err := os.Create(nginxPath + "lock"); err != nil {
+	if f, err := os.Create(conf.NginxPath + "lock"); err != nil {
 		return err
 	} else {
 		err = f.Close()
@@ -131,19 +224,12 @@ func Init(nginxPath string, logPath string, serverName string, pidPath string, h
 	return nil
 }
 
-func renderNginxConf(nginxPath string, logPath string, pidPath string, serverName string, serverNamesHashMaxSize int, serverNamesHashBucketSize int) error {
-	f, err := os.Create(nginxPath + "conf/nginx.conf")
+func renderNginxConf(conf NginxConf) error {
+	f, err := os.Create(conf.NginxPath + "conf/nginx.conf")
 	if err != nil {
 		return err
 	}
-	err = nginxConfTmpl.Execute(f, map[string]interface{}{
-		"NginxPath":                 nginxPath,
-		"LogPath":                   logPath,
-		"PidPath":                   pidPath,
-		"ServerName":                serverName,
-		"ServerNamesHashMaxSize":    serverNamesHashMaxSize,
-		"ServerNamesHashBucketSize": serverNamesHashBucketSize,
-	})
+	err = nginxConfTmpl.Execute(f, conf)
 	if err != nil {
 		f.Close()
 		return err
@@ -151,17 +237,28 @@ func renderNginxConf(nginxPath string, logPath string, pidPath string, serverNam
 	return f.Close()
 }
 
-func renderServerConf(config *Config, nginxPath string, logPath string, https bool, sslPath string) error {
-	f, err := os.Create(nginxPath + "conf/server.conf")
+func renderProxyConf(conf ProxyConf) error {
+	f, err := os.Create(conf.NginxPath + "conf/proxy.conf")
+	if err != nil {
+		return err
+	}
+	err = proxyConfTmpl.Execute(f, conf)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+func renderServerConf(config *Config, conf ServerConf) error {
+	f, err := os.Create(conf.NginxPath + "conf/server.conf")
 	if err != nil {
 		return err
 	}
 	err = serverTmpl.Execute(f, map[string]interface{}{
-		"HTTPS":     https,
-		"NginxPath": nginxPath,
-		"LogPath":   logPath,
-		"SSLPath":   sslPath,
-		"Servers":   config.Servers,
+		"Conf":    conf,
+		"Servers": config.Servers,
+		"Replace": replace,
 	})
 	if err != nil {
 		f.Close()
@@ -170,14 +267,14 @@ func renderServerConf(config *Config, nginxPath string, logPath string, https bo
 	return f.Close()
 }
 
-func renderUpstreamConf(config *Config, consulAddr string, consulPrefix string, nginxPath string) error {
-	f, err := os.Create(nginxPath + "conf/upstream.conf")
+func renderUpstreamConf(config *Config, conf UpstreamConf) error {
+	f, err := os.Create(conf.NginxPath + "conf/upstream.conf")
 	if err != nil {
 		return err
 	}
 	err = upstreamTmpl.Execute(f, map[string]interface{}{
-		"ConsulAddr":   consulAddr,
-		"ConsulPrefix": consulPrefix,
+		"ConsulAddr":   conf.ConsulAddr,
+		"ConsulPrefix": conf.ConsulPrefix,
 		"Upstreams":    config.Upstreams,
 	})
 	if err != nil {
@@ -210,7 +307,7 @@ func loadCrt(sslPath string) error {
 	return nil
 }
 
-func matchSSL(config *Config) {
+func fixSSL(config *Config) {
 	for serverName := range config.Servers {
 		for certName, cert := range certs {
 			err := cert.VerifyHostname(serverName)
@@ -224,14 +321,20 @@ func matchSSL(config *Config) {
 	}
 }
 
-func render(config *Config, consulAddr string, consulPrefix string, nginxPath string, logPath string, https bool, sslPath string) error {
-	if err := renderServerConf(config, nginxPath, logPath, https, sslPath); err != nil {
-		return err
+func fixABTest(config *Config) {
+	for serverName, server := range config.Servers {
+		for uri, location := range server.Locations {
+			if _, ok := config.Upstreams[location.Upstream+"_canary"]; ok {
+				v := config.Servers[serverName].Locations[uri]
+				v.ABTest = true
+				config.Servers[serverName].Locations[uri] = v
+				log.WithFields(log.Fields{
+					"server":   serverName,
+					"location": uri,
+				}).Debugln("ABTest=true")
+			}
+		}
 	}
-	if err := renderUpstreamConf(config, consulAddr, consulPrefix, nginxPath); err != nil {
-		return err
-	}
-	return nil
 }
 
 func Reload(path string) error {
@@ -251,9 +354,30 @@ func Reload(path string) error {
 	return nil
 }
 
-func Render(config *Config, consulAddr string, consulPrefix, nginxPath string, logPath string, https bool, sslPath string) error {
-	if https {
-		matchSSL(config)
+func Render(config *Config, conf RenderConf) error {
+	if conf.HTTPS {
+		fixSSL(config)
 	}
-	return render(config, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath)
+	if conf.ABTest {
+		fixABTest(config)
+	}
+	serverConf := ServerConf{
+		NginxPath: conf.NginxPath,
+		LogPath:   conf.LogPath,
+		HTTPS:     conf.HTTPS,
+		SSLPath:   conf.SSLPath,
+		ABTest:    conf.ABTest,
+	}
+	if err := renderServerConf(config, serverConf); err != nil {
+		return err
+	}
+	upstreamConf := UpstreamConf{
+		NginxPath:    conf.NginxPath,
+		ConsulAddr:   conf.ConsulAddr,
+		ConsulPrefix: conf.ConsulPrefix,
+	}
+	if err := renderUpstreamConf(config, upstreamConf); err != nil {
+		return err
+	}
+	return nil
 }

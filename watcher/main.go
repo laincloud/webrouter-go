@@ -32,8 +32,13 @@ func main() {
 	viper.SetDefault("serverNamesHashBucketSize", 64)
 	viper.SetDefault("debug", false)
 	viper.SetDefault("graphite", false)
-	viper.SetDefault("graphiteHost", nil)
-	viper.SetDefault("graphitePort", nil)
+	viper.SetDefault("ABTest", false)
+	viper.SetDefault("redisRole", "master")
+	viper.SetDefault("redisDBID", 0)
+	viper.SetDefault("redisConnectTimeout", 100)
+	viper.SetDefault("redisReadTimeout", 1000)
+	viper.SetDefault("redisKeepaliveTimeout", 60000)
+	viper.SetDefault("redisPoolSize", 30)
 
 	viper.BindEnv("lainlet", "LAINLET_ADDR")
 	viper.BindEnv("consul", "CONSUL_ADDR")
@@ -50,18 +55,19 @@ func main() {
 	viper.BindEnv("graphite", "GRAPHITE_ENABLE")
 	viper.BindEnv("graphiteHost", "GRAPHITE_HOST")
 	viper.BindEnv("graphitePort", "GRAPHITE_PORT")
+	viper.BindEnv("ABTest", "AB_TEST")
+	viper.BindEnv("redisSentinel", "REDIS_SENTINEL")
+	viper.BindEnv("redisMasterName", "REDIS_MASTER_NAME")
+	viper.BindEnv("redisRole", "REDIS_ROLE")
+	viper.BindEnv("redisPassword", "REDIS_PASSWORD")
+	viper.BindEnv("redisConnectTimeout", "REDIS_CONNECT_TIMEOUT")
+	viper.BindEnv("redisReadTimeout", "REDIS_READ_TIMEOUT")
+	viper.BindEnv("redisDBID", "REDIS_DBID")
+	viper.BindEnv("redisPoolSize", "REDIS_POOL_SIZE")
+	viper.BindEnv("redisKeepaliveTimeout", "REDIS_KEEPALIVE_TIMEOUT")
 
 	lainletAddr := viper.GetString("lainlet")
-	consulAddr := viper.GetString("consul")
-	nginxPath := viper.GetString("nginx")
 	pidPath := viper.GetString("pid")
-	logPath := viper.GetString("log")
-	sslPath := viper.GetString("ssl")
-	serverName := viper.GetString("serverName")
-	consulPrefix := viper.GetString("prefix")
-	https := viper.GetBool("https")
-	serverNamesHashMaxSize := viper.GetInt("serverNamesHashMaxSize")
-	serverNamesHashBucketSize := viper.GetInt("serverNamesHashBucketSize")
 	debug := viper.GetBool("debug")
 	graphiteEnable := viper.GetBool("graphite")
 	var graphiteHost string
@@ -74,7 +80,43 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	err := nginx.Init(nginxPath, logPath, serverName, pidPath, https, sslPath, serverNamesHashMaxSize, serverNamesHashBucketSize)
+	redisConf := nginx.RedisConf{
+		Sentinel:         viper.GetString("redisSentinel"),
+		MasterName:       viper.GetString("redisMasterName"),
+		Role:             viper.GetString("redisRole"),
+		Password:         viper.GetString("redisPassword"),
+		ConnectTimeout:   viper.GetInt("redisConnectTimeout"),
+		ReadTimeout:      viper.GetInt("redisReadTimeout"),
+		DBID:             viper.GetInt("redisDBID"),
+		PoolSize:         viper.GetInt("redisPoolSize"),
+		KeepaliveTimeout: viper.GetInt("redisKeepaliveTimeout"),
+	}
+
+	initConf := nginx.InitConf{
+		NginxPath:                 viper.GetString("nginx"),
+		LogPath:                   viper.GetString("log"),
+		ServerName:                viper.GetString("serverName"),
+		PidPath:                   viper.GetString("pid"),
+		HTTPS:                     viper.GetBool("https"),
+		SSLPath:                   viper.GetString("ssl"),
+		ServerNamesHashMaxSize:    viper.GetInt("serverNamesHashMaxSize"),
+		ServerNamesHashBucketSize: viper.GetInt("serverNamesHashBucketSize"),
+		ABTest:    viper.GetBool("ABTest"),
+		RedisConf: redisConf,
+	}
+
+	randerConf := nginx.RenderConf{
+		NginxPath:    viper.GetString("nginx"),
+		LogPath:      viper.GetString("log"),
+		HTTPS:        viper.GetBool("https"),
+		SSLPath:      viper.GetString("ssl"),
+		ConsulAddr:   viper.GetString("consul"),
+		ConsulPrefix: viper.GetString("prefix"),
+		ABTest:       viper.GetBool("ABTest"),
+		RedisConf:    redisConf,
+	}
+
+	err := nginx.Init(initConf)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -115,7 +157,7 @@ func main() {
 				log.Errorln(err)
 				continue
 			}
-			if err := nginx.Render(&newConfig, consulAddr, consulPrefix, nginxPath, logPath, https, sslPath); err != nil {
+			if err := nginx.Render(&newConfig, randerConf); err != nil {
 				health = 0
 				log.Errorln(err)
 				continue
@@ -129,7 +171,7 @@ func main() {
 				log.Errorln(string(stderr.Bytes()))
 				continue
 			}
-			if !reflect.DeepEqual(servers, newConfig.Servers) {
+			if !reflect.DeepEqual(servers, newServers) {
 				if err := nginx.Reload(pidPath); err != nil {
 					health = 0
 					log.Errorln(err)

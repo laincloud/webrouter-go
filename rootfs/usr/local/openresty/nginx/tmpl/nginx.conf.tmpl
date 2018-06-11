@@ -1,7 +1,7 @@
 worker_processes  4;
 
-error_log  {{ $.LogPath }}error.log warn;
-pid        {{ $.PidPath }};
+error_log  {{ .LogPath }}error.log warn;
+pid        {{ .PidPath }};
 
 events {
     worker_connections  10240;
@@ -15,15 +15,15 @@ http {
                       '$status $body_bytes_sent "$http_referer" '
                       '"$http_user_agent" "$http_x_forwarded_for"';
 
-    access_log  {{ $.LogPath }}access.log  main;
+    access_log  {{ .LogPath }}access.log  main;
 
     sendfile        on;
 
     keepalive_timeout  65;
 
-    server_names_hash_max_size {{ $.ServerNamesHashMaxSize }};
+    server_names_hash_max_size {{ .ServerNamesHashMaxSize }};
 
-    server_names_hash_bucket_size {{ $.ServerNamesHashBucketSize }};
+    server_names_hash_bucket_size {{ .ServerNamesHashBucketSize }};
 
     client_max_body_size 0;
 
@@ -46,7 +46,7 @@ http {
 
     server {
         listen 80;
-        server_name  localhost {{ $.ServerName }};
+        server_name  localhost {{ .ServerName }};
 
         location = /upstream_show {
             upstream_show;
@@ -56,8 +56,27 @@ http {
             check_status;
             access_log off;
         }
-    }
+{{- if .ABTest }}
+        set $redis_sentinel "{{ .RedisConf.Sentinel }}";
+        set $redis_master_name "{{ .RedisConf.MasterName }}";
+        set $redis_role "{{ .RedisConf.Role }}";
+        set $redis_password "{{ .RedisConf.Password }}";
+        set $redis_connect_timeout {{ .RedisConf.ConnectTimeout }};
+        set $redis_read_timeout {{ .RedisConf.ReadTimeout }};
+        set $redis_dbid {{ .RedisConf.DBID }};
+        set $redis_pool_size {{ .RedisConf.PoolSize }};
+        set $redis_keepalive_timeout {{ .RedisConf.KeepaliveTimeout }};
 
-    include {{ $.NginxPath }}conf/server.conf;
-    include {{ $.NginxPath }}conf/upstream.conf;
+        location /ab_admin {
+        	content_by_lua_file '/usr/local/ABTestingGateway/admin/ab_action.lua';
+        }
+{{- end }}
+    }
+{{- if  .ABTest }}
+    lua_code_cache on;
+    lua_package_path "/usr/local/ABTestingGateway/?.lua;/usr/local/ABTestingGateway/lib/?.lua;/usr/local/openresty/lualib/?.lua;;";
+    lua_need_request_body on;
+{{- end }}
+    include {{ .NginxPath }}conf/server.conf;
+    include {{ .NginxPath }}conf/upstream.conf;
 }
