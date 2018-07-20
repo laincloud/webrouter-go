@@ -35,6 +35,8 @@ http {
     large_client_header_buffers 4 1024k;
     chunked_transfer_encoding on;
 
+    check_shm_size {{ .CheckShmSize }}M;
+
     server {
         listen 80 default_server;
         listen 443 ssl default_server;

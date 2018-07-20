@@ -58,6 +58,7 @@ type InitConf struct {
 	SSLPath                   string
 	ServerNamesHashMaxSize    int
 	ServerNamesHashBucketSize int
+	CheckShmSize              int
 	ABTest                    bool
 	RedisConf                 RedisConf
 }
@@ -69,6 +70,7 @@ type NginxConf struct {
 	PidPath                   string
 	ServerNamesHashMaxSize    int
 	ServerNamesHashBucketSize int
+	CheckShmSize              int
 	ABTest                    bool
 	RedisConf                 RedisConf
 }
@@ -138,8 +140,9 @@ func Init(conf InitConf) error {
 		PidPath:                   conf.PidPath,
 		ServerNamesHashMaxSize:    conf.ServerNamesHashMaxSize,
 		ServerNamesHashBucketSize: conf.ServerNamesHashBucketSize,
-		ABTest:    conf.ABTest,
-		RedisConf: conf.RedisConf,
+		CheckShmSize:              conf.CheckShmSize,
+		ABTest:                    conf.ABTest,
+		RedisConf:                 conf.RedisConf,
 	}
 
 	if err := renderNginxConf(nginxConf); err != nil {

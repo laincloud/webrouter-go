@@ -28,6 +28,7 @@ worker.worker:
     - HTTPS=false
     - SERVER_NAMES_HASH_MAX_SIZE=512
     - SERVER_NAMES_HASH_BUCKET_SIZE=64
+    - CHECK_SHM_SIZE=1
     - DEBUG=false
     - GRAPHITE_ENABLE=false
   cpu: 8
@@ -36,7 +37,7 @@ worker.worker:
     - /var/log/nginx
 
 worker.confd:
-  image: laincloud/webrouter-confd:201806111718
+  image: laincloud/webrouter-confd:201806191144
   cmd: /usr/local/bin/confd
   env:
     - LAINLET_ADDR=lainlet.lain:9001

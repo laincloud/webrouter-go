@@ -30,6 +30,7 @@ func main() {
 	viper.SetDefault("https", false)
 	viper.SetDefault("serverNamesHashMaxSize", 512)
 	viper.SetDefault("serverNamesHashBucketSize", 64)
+	viper.SetDefault("checkShmSize",1)
 	viper.SetDefault("debug", false)
 	viper.SetDefault("graphite", false)
 	viper.SetDefault("ABTest", false)
@@ -51,6 +52,7 @@ func main() {
 	viper.BindEnv("https", "HTTPS")
 	viper.BindEnv("serverNamesHashMaxSize", "SERVER_NAMES_HASH_MAX_SIZE")
 	viper.BindEnv("serverNamesHashBucketSize", "SERVER_NAMES_HASH_BUCKET_SIZE")
+	viper.BindEnv("checkShmSize","CHECK_SHM_SIZE")
 	viper.BindEnv("debug", "DEBUG")
 	viper.BindEnv("graphite", "GRAPHITE_ENABLE")
 	viper.BindEnv("graphiteHost", "GRAPHITE_HOST")
@@ -101,6 +103,7 @@ func main() {
 		SSLPath:                   viper.GetString("ssl"),
 		ServerNamesHashMaxSize:    viper.GetInt("serverNamesHashMaxSize"),
 		ServerNamesHashBucketSize: viper.GetInt("serverNamesHashBucketSize"),
+		CheckShmSize:              viper.GetInt("checkShmSize"),
 		ABTest:    viper.GetBool("ABTest"),
 		RedisConf: redisConf,
 	}
